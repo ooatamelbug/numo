@@ -40,7 +40,7 @@ class PermissionSeeder extends Seeder
           for ($z=0; $z < count($allow); $z++) {
             DB::table('permisions')->insert([
               'status' => 1,
-              'title' => $per[$i].'.'.$allow[$z]
+              'title' => $per[$i].':'.$allow[$z]
             ]);
           }
         }

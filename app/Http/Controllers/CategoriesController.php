@@ -112,16 +112,17 @@ class CategoriesController extends Controller
 
       $request->validate([
         'title' => 'required|min:3',
-        'title_slug' => 'required|min:3|unique:categories',
+        'title_slug' => 'required|min:3|unique:categories,title_slug,'.$categories->id,
         'desc' => 'nullable',
         'status' => 'nullable',
       ]);
-      $categories = Categories::update([
+      $status = $request->status ? $request->status : $categories->status ;
+      $categories = Categories::where('id', $categories->id)->update([
           'title' => $request->title,
           'title_slug' => $request->title_slug,
           'desc' => $request->desc,
           'admin_id' => $request->user()->id,
-          'status' => $request->status
+          'status' => $status
         ]);
       return response()->json([
           'success' => true,

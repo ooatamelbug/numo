@@ -15,7 +15,7 @@ class StudentsController extends Controller
      */
     public function index(Request $request)
     {
-      if(!$request->user()->tokenCan('admins:read')){
+      if(!$request->user()->tokenCan('students:read')){
         return response()->json([
           'msg' => 'not access',
           'success' => false,
@@ -37,6 +37,7 @@ class StudentsController extends Controller
      */
      public function login(Request $request)
      {
+
        if (!Auth::guard('students')->attempt([
          'email' => $request->email ,
          'password' => $request->password
@@ -49,25 +50,18 @@ class StudentsController extends Controller
        }
 
        $students = auth()->guard('students')->user();
-      //  $permisionsAdmins = PermisionsAdmins::
-      //  join('permisions', 'permisions.id','=', 'permisions_admins.permision_id')
-      // ->select('permisions.title as title')
-      // ->where(
-      //     'admin_id', $admin->id
-      //   )->get();
-        $str = ["carts.*",
-        "carts_details.*","courses.read",
-        "exams.read","exam_questions_anwser_choices.read",
-        "exam_questions_anwser_writes.read",
-        "questionnaires.read",
-        "order_payments.*",
-        "order_payment_details.*",
-        "unit_videos.read",
+
+        $str = ["carts:*",
+        "carts_details:*","courses:read",
+        "exams:read","exam_questions_anwser_choices:read",
+        "exam_questions_anwser_writes:read",
+        "questionnaires:read",
+        "order_payments:*",
+        "order_payment_details:*",
+        "unit_videos:read",
+        "students:update",
+        "students:read"
         ];
-        // for ($i=0; $i < count($permisionsAdmins); $i++) {
-          // code...
-          // $str[$i] = $permisionsAdmins[$i]->title;
-        // }
         if( count($str) == 0 ) { $str = ["*"]; }
        $token = $students->createToken($request->email, $str)->plainTextToken;
        return response()->json([
@@ -79,6 +73,32 @@ class StudentsController extends Controller
      }
 
 
+     public function active(Request $request, $students)
+     {
+      if(!$request->user()->tokenCan('students:update')){
+        return response()->json([
+          'msg' => 'not access',
+          'success' => false,
+          'status' => 401
+        ]);
+      }
+
+      $request->validate([
+        'status' => 'required|max:100'
+      ]);
+      $student = Students::where('id', $students)->update(
+        [
+          'status' =>$request->status,
+          'actived_by_id' => $request->user()->id
+        ]
+      );
+
+      return response()->json([
+        'success' => true,
+        'status' => 200 ,
+        'data' => 'update'
+      ]);
+    }
     /**
      * Store a newly created resource in storage.
      *
@@ -91,15 +111,15 @@ class StudentsController extends Controller
         'first_name' => 'required|max:100',
         'password' => 'required|max:100',
         'last_name' => 'required|max:100',
-        'email' => 'required|unique:admins|max:100',
+        'email' => 'required|unique:students|max:100',
         'phone' => 'max:100|nullable',
-        'image' => 'max:100|nullable',
-        'rolls' => 'required|max:100'
       ]);
       $request->password = Hash::make($request->password);
 
       $students = Students::create(
-        array_merge($request->all(),['password' =>$request->password ]),
+        array_merge($request->all(),[
+          'password' =>$request->password
+         ]),
       );
       return response()->json([
         'success' => true,
@@ -145,40 +165,44 @@ class StudentsController extends Controller
           'status' => 401
         ]);
       }
-      if(!$request->user()->rolls || $request->user()->id != $students->id ){
+
+      if(!$request->user()->rolls && $request->user()->id != $students->id ){
         return response()->json([
-          'msg' => 'not access',
+          'msg' => 'not access for this',
           'success' => false,
           'status' => 401
         ]);
       }
       $request->validate([
-        'image' => 'nullable|max:100',
-        'imagecertificated' => 'nullable|max:100',
-        'imagenationalid' => 'nullable|max:100',
+        'image' => 'nullable',
+        'imagecertificated' => 'nullable',
+        'imagenationalid' => 'nullable',
       ]);
       if($request->hasfile('image')) {
         $file = $request->file('image');
-        $name = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/', $name);
+        $name = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/user/'), $name);
+        $l = 'uploads/user/'.$name;
         $student = Students::where('id', $students->id)->update([
-          "image" => $name
+          "image" => $l
         ]);
       }
       if($request->hasfile('imagecertificated')) {
         $file = $request->file('imagecertificated');
-        $nameimagecertificated = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/', $nameimagecertificated);
+        $nameimagecertificated = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/user/'), $nameimagecertificated);
+        $l = 'uploads/user/'.$nameimagecertificated;
         $student = Students::where('id', $students->id)->update([
-          "imagecertificated" => $nameimagecertificated
+          "imagecertificated" => $l
         ]);
       }
       if($request->hasfile('imagenationalid')) {
         $file = $request->file('imagenationalid');
-        $nameimagenationalid = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/', $nameimagenationalid);
+        $nameimagenationalid = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/user/'), $nameimagenationalid);
+        $l = 'uploads/user/'.$nameimagenationalid;
         $student = Students::where('id', $students->id)->update([
-          "imagenationalid" => $nameimagenationalid
+          "imagenationalid" => $l
         ]);
       }
       return response()->json([
@@ -203,16 +227,17 @@ class StudentsController extends Controller
           'success' => false,
           'status' => 401
         ]);
+      }
+
         $request->validate([
           'first_name' => 'required|max:100',
           'password' => 'required|max:100',
           'last_name' => 'required|max:100',
-          'email' => 'required|unique:students,email,'.$admins->id.'|max:100',
+          'email' => 'required|unique:students,email,'.$students->id.'|max:100',
           'phone' => 'max:100|nullable',
-          'image' => 'max:100|nullable',
         ]);
         $request->password = Hash::make($request->password);
-        $student = Admins::where('id', $students->id)->update(
+        $student = Students::where('id', $students->id)->update(
           array_merge($request->all(),['password' =>$request->password ]),
         );
         return response()->json([
@@ -220,7 +245,6 @@ class StudentsController extends Controller
           'status' => 200 ,
           'data' => 'update'
         ]);
-      }
     }
 
     /**

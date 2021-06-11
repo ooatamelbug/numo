@@ -48,7 +48,7 @@ class Students extends Authenticatable
      protected $casts = [
          'email_verified_at' => 'datetime',
      ];
-     
+
     public function admins()
     {
         return $this->belongsTo(Admins::class, 'actived_by_id');
@@ -108,11 +108,7 @@ class Students extends Authenticatable
      {
          return $this->hasMany(QuestionnairesQuestionsAnwserWrites::class, 'actived_by_id');
      }
-     // handel PermisionsAdmins Relationships
-     public function questionnaires_questions_anwser_choices()
-     {
-         return $this->hasMany(QuestionnairesFinishes::class, 'actived_by_id');
-     }
+     
      // handel PermisionsAdmins Relationships
      public function course_rates()
      {

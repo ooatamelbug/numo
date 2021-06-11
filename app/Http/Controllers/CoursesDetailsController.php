@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 use App\Models\Courses;
-
 use App\Models\CoursesDetails;
 use Illuminate\Http\Request;
 use App\Models\CoursesDetailsUnites;
@@ -26,7 +25,7 @@ class CoursesDetailsController extends Controller
         "courses.title as course"
       )->where('course_id', $course)
       ->get();
-      $un = CoursesDetailsUnites::->where('course_id', $coursesDetails)->get();
+      $un = CoursesDetailsUnites::where('course_id', $coursesDetails)->get();
       $courses->details_unites = $un;
         return response()->json([
           'success' => true,
@@ -64,12 +63,12 @@ class CoursesDetailsController extends Controller
         'units' => 'required|max:100',
         'total_time' => 'required|max:100',
         'desc' => 'max:100|nullable',
-        'course_id' => 'max:100|required',
+        'course_id' => 'max:100|required|unique:course_id',
         "unites" => [
           "title" => 'required',
           "ranged" => 'required',
           "desc" => 'required',
-          "image" => 'required',
+          "image" => 'nullable',
           "total_time" => 'required'
         ]
       ]);
@@ -83,20 +82,23 @@ class CoursesDetailsController extends Controller
       );
 
       for ($i=0; $i < count($request->unites) ; $i++) {
+        // return $request->unites[0];
         // code...
-        if($request->unites[$i]->hasfile('image')) {
+        $link = "";
+        if($request->unites[$i]['image']) {
           $file = $request->file('image');
           $name = $file->getClientOriginalName();
-          $file->move(public_path().'/uploads/courses/', $name);
+          $file->move(public_path('/uploads/course/'), $name);
+          $link = "uploads/course/".$name;
         }
-
+        $link1 = $link ? $link: '';
         $u = CoursesDetailsUnites::create([
-          "title" => $request->unites[$i]->title,
-          "ranged" => $request->unites[$i]->ranged,
-          "desc" => $request->unites[$i]->desc,
-          "image" => $name,
+          "title" => $request->unites[$i]['title'],
+          "ranged" => $request->unites[$i]['ranged'],
+          "desc" => $request->unites[$i]['desc'],
+          "image" => $link1,
           "course_id" => $request->course_id,
-          "total_time" => $request->unites[$i]->total_time,
+          "total_time" => $request->unites[$i]['total_time'],
         ]);
       }
       return response()->json([
@@ -126,7 +128,7 @@ class CoursesDetailsController extends Controller
       // ->get();
       // $v = UnitVideo::->where('unit_id', $coursesDetails)
       // ->get();
-      $un = CoursesDetailsUnites::->where('course_id', $coursesDetails)->get();
+      $un = CoursesDetailsUnites::where('course_id', $coursesDetails)->get();
       $courses->details_unites = $un;
       // $courses->file = $f;
       // $courses->video = $v;
@@ -151,9 +153,9 @@ class CoursesDetailsController extends Controller
       )->select(
         "courses_details.*",
         "courses.title as course"
-      )->where('id', $coursesDetails)
+      )->where('course_id', $coursesDetails)
       ->get();
-      $un = CoursesDetailsUnites::->where('course_id', $coursesDetails)->get();
+      $un = CoursesDetailsUnites::where('course_id', $coursesDetails)->get();
       $courses->details_unites = $un;
       return response()->json([
           'success' => true,
@@ -169,7 +171,7 @@ class CoursesDetailsController extends Controller
      * @param  \App\Models\CoursesDetails  $coursesDetails
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, CoursesDetails $coursesDetails)
+    public function update(Request $request,  $coursesDetails)
     {
       if(!$request->user()->tokenCan('courses_details:update')){
         return response()->json([
@@ -178,7 +180,7 @@ class CoursesDetailsController extends Controller
           'status' => 401
         ]);
       }
-      $courses = Courses::find($coursesDetails->course_id);
+      $courses = Courses::find($coursesDetails);
       if(!$request->user()->rolls || $request->user()->id != $courses->teacher_id ){
         return response()->json([
           'msg' => 'not access',
@@ -186,14 +188,15 @@ class CoursesDetailsController extends Controller
           'status' => 401
         ]);
       }
+      $coursesd = CoursesDetails::where('course_id',$courses->id )->get()->first();
       $request->validate([
         'units' => 'required|max:100',
         'total_time' => 'required|max:100',
-        'course_id' => 'required|max:100',
+        'course_id' => 'required|max:100|unique:courses,id,'.$courses->id,
         'desc' => 'max:100|nullable',
       ]);
 
-      $course = CoursesDetails::where('id', $coursesDetails->id)->update(
+      $course = CoursesDetails::where('id', $coursesd->id)->update(
         array_merge($request->all())
       );
       return response()->json([

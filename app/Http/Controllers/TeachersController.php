@@ -96,9 +96,19 @@ class TeachersController extends Controller
         'image' => 'max:100|nullable'
       ]);
       $request->password = Hash::make($request->password);
+      if($request->hasfile('image')){
+        $file = $request->file('image');
+        $name = time().rand(1,100).'.'.$file->getClientOriginalExtension();
+        $file->move(public_path('/uploads/users'), $name);
+        $link = "public/uploads/users/".$name;
 
+      }
       $teacher = Teachers::create(
-        array_merge($request->all(),['password' =>$request->password, "actived_by_id" => $request->user()->id ]),
+        array_merge($request->all(),[
+          'password' =>$request->password,
+          "actived_by_id" => $request->user()->id,
+          "image" => $link
+         ])
       );
       return response()->json([
         'success' => true,
@@ -164,6 +174,7 @@ class TeachersController extends Controller
           'status' => 401
         ]);
       }
+
       $request->validate([
         'first_name' => 'required|max:100',
         'password' => 'required|max:100',
@@ -172,9 +183,21 @@ class TeachersController extends Controller
         'phone' => 'max:100|nullable',
         'image' => 'max:100|nullable'
       ]);
+
       $request->password = Hash::make($request->password);
+      if($request->hasfile('image')){
+        $file = $request->file('image');
+        $name = time().rand(1,100).'.'.$file->getClientOriginalExtension();
+        $file->move(public_path('/uploads/users'), $name);
+        $link = "public/uploads/users/".$name;
+
+      }
       $teacher = Teachers::where('id', $teachers->id)->update(
-        array_merge($request->all(),['password' =>$request->password ]),
+        array_merge($request->all(),[
+          'password' =>$request->password,
+          "actived_by_id" => $request->user()->id,
+          "image" => $link
+         ])
       );
       return response()->json([
         'success' => true,

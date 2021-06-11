@@ -86,4 +86,8 @@ class Courses extends Model
    {
       return $this->hasMany(Exams::class, 'course_id');
     }
+    public function meeting_online_course()
+    {
+        return $this->hasMany(MeetingOnlineCourses::class, 'course_id');
+    }
 }

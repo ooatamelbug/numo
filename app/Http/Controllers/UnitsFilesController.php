@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\UnitsFiles;
 use Illuminate\Http\Request;
+use App\Models\CoursesDetailsUnites;
+
 
 class UnitsFilesController extends Controller
 {
@@ -54,26 +56,34 @@ class UnitsFilesController extends Controller
           'status' => 401
         ]);
       }
+      $unit =CoursesDetailsUnites::find($request->unit_id);
+      if(!$unit){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
       $request->validate([
-        'image' => 'required|max:100',
+        'name' => 'required',
         'unit_id' => 'required|max:100'
       ]);
 
-      if($request->hasfile('image')) {
-        $file = $request->file('image');
-        $name = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/courses/', $name);
+      if($request->hasfile('name')) {
+        $file = $request->file('name');
+        $name = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/course/'), $name);
       }
-
+      $l = 'uploads/course/'.$name;
       $course = UnitsFiles::create(
         array_merge($request->all(),[
-          'name' => $name
+          'name' => $l
         ])
       );
       return response()->json([
         'success' => true,
         'status' => 200 ,
-        'data' => 'update'
+        'data' => 'added'
       ]);
     }
 
@@ -115,6 +125,27 @@ class UnitsFilesController extends Controller
           'status' => 401
         ]);
       }
+      $request->validate([
+        'name' => 'nullable',
+        'unit_id' => 'required|max:100'
+      ]);
+
+      if($request->hasfile('name')) {
+        $file = $request->file('name');
+        $name = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/course/'), $name);
+      }
+      $l = $request->hasfile('name') ? '/uploads/course/'.$name : $unitsFiles->name;
+      $course = UnitsFiles::where('id',$unitsFiles->id)->update(
+        array_merge($request->all(),[
+          "name" => $l
+        ])
+      );
+      return response()->json([
+        'success' => true,
+        'status' => 200 ,
+        'data' => 'update'
+      ]);
     }
 
     /**
@@ -123,7 +154,7 @@ class UnitsFilesController extends Controller
      * @param  \App\Models\UnitsFiles  $unitsFiles
      * @return \Illuminate\Http\Response
      */
-    public function destroy(UnitsFiles $unitsFiles)
+    public function destroy(Request $request, UnitsFiles $unitsFiles)
     {
       if(!$request->user()->tokenCan('admins:read')){
         return response()->json([

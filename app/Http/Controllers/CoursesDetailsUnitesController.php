@@ -16,6 +16,14 @@ class CoursesDetailsUnitesController extends Controller
      */
     public function index($course)
     {
+      $coursefound =Courses::find($course);
+      if(!$coursefound){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
       $courses = CoursesDetailsUnites::join(
 
           "courses","courses.id", "=" , "courses_details_unites.course_id"
@@ -57,37 +65,41 @@ class CoursesDetailsUnitesController extends Controller
         ]);
       }
       $request->validate([
-        'course_id' => 'max:100|required',
-        "unites" => [
           "title" => 'required',
           "ranged" => 'required',
           "desc" => 'required',
-          "image" => 'required',
+          'course_id' => 'max:100|required',
+          "image" => 'nullable',
           "total_time" => 'required'
-        ]
       ]);
-
-      for ($i=0; $i < count($request->unites) ; $i++) {
-        // code...
-        if($request->unites[$i]->hasfile('image')) {
+      $coursefound =Courses::find($request->course_id);
+      if(!$coursefound){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
+      $link = '';
+        if($request->hasfile('image')) {
           $file = $request->file('image');
-          $name = $file->getClientOriginalName();
-          $file->move(public_path().'/uploads/courses/', $name);
+          $name =  time().$file->getClientOriginalName();
+          $file->move(public_path('/uploads/course/'), $name);
+          $link = "uploads/course/".$name;
         }
 
         $u = CoursesDetailsUnites::create([
-          "title" => $request->unites[$i]->title,
-          "ranged" => $request->unites[$i]->ranged,
-          "desc" => $request->unites[$i]->desc,
-          "image" => $name,
+          "title" => $request->title,
+          "ranged" => $request->ranged,
+          "desc" => $request->desc,
+          "image" => $link,
           "course_id" => $request->course_id,
-          "total_time" => $request->unites[$i]->total_time,
+          "total_time" => $request->total_time,
         ]);
-      }
       return response()->json([
         'success' => true,
         'status' => 201 ,
-        'data' => $course
+        'data' => $u
       ]);
     }
 
@@ -99,10 +111,18 @@ class CoursesDetailsUnitesController extends Controller
      */
     public function show($coursesDetailsUnites)
     {
-      $un = CoursesDetailsUnites::->where('course_id', $coursesDetailsUnites)->get();
-      $f = UnitsFiles::->where('unit_id', $coursesDetailsUnites)
+      $coursefound =Courses::find($coursesDetailsUnites);
+      if(!$coursefound){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
+      $un = CoursesDetailsUnites::where('course_id', $coursesDetailsUnites)->get();
+      $f = UnitsFiles::where('unit_id', $coursesDetailsUnites)
       ->get();
-      $v = UnitVideo::->where('unit_id', $coursesDetailsUnites)
+      $v = UnitVideo::where('unit_id', $coursesDetailsUnites)
       ->get();
       $un->file = $f;
       $un->video = $v;
@@ -141,6 +161,14 @@ class CoursesDetailsUnitesController extends Controller
         ]);
       }
       $courses = Courses::find($coursesDetailsUnites->course_id);
+
+      if(!$courses){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
       if(!$request->user()->rolls || $request->user()->id != $courses->teacher_id ){
         return response()->json([
           'msg' => 'not access',
@@ -156,14 +184,18 @@ class CoursesDetailsUnitesController extends Controller
         'total_time' => 'max:100|nullable',
         'course_id' => 'max:100|nullable',
       ]);
-      if($request->unites[$i]->hasfile('image')) {
+      $link = '';
+      if($request->hasfile('image')) {
         $file = $request->file('image');
-        $name = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/courses/', $name);
+        $name = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/course/'), $name);
+        $link = "uploads/course/".$name;
+
       }
 
       $course = CoursesDetailsUnites::where('id', $coursesDetailsUnites->id)->update(
-        array_merge($request->all(), ["image" =>  $name ])
+        array_merge($request->all(), [
+          "image" =>  $link ])
       );
 
       return response()->json([
@@ -179,7 +211,7 @@ class CoursesDetailsUnitesController extends Controller
      * @param  \App\Models\CoursesDetailsUnites  $coursesDetailsUnites
      * @return \Illuminate\Http\Response
      */
-    public function destroy(CoursesDetailsUnites $coursesDetailsUnites)
+    public function destroy(Request $request, CoursesDetailsUnites $coursesDetailsUnites)
     {
       if(!$request->user()->tokenCan('courses_details_unites:delete')){
         return response()->json([

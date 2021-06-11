@@ -11,6 +11,7 @@ class NewsImages extends Model
     protected $fillable = [
       'title',
       'status',
+      'link',
       'ranged',
       'news_id',
     ];

@@ -14,5 +14,26 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('site.index');
+});
+
+Route::get('/news', function () {
+    return view('site.news');
+});
+
+Route::get('/about', function () {
+    return view('site.about');
+});
+Route::get('/structure', function () {
+    return view('site.struct');
+});
+Route::get('/contact', function () {
+    return view('site.contact');
+});
+Route::get('/courses', function () {
+    return view('site.courses');
+});
+
+Route::get('/one-course/{course}', function ($course) {
+    return view('site.one-course')->with('courses', $course);
 });

@@ -6,6 +6,7 @@ use App\Models\Courses;
 use Illuminate\Http\Request;
 use App\Models\CoursesDetails;
 use App\Models\CoursesDetailsUnites;
+use App\Models\Categories;
 
 class CoursesController extends Controller
 {
@@ -14,8 +15,10 @@ class CoursesController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index($ofset)
     {
+      $limt = 10;
+      $offset = ($ofset - 1) * $limt;
       $courses = Courses::join(
         "teachers","teachers.id", "=" , "courses.teacher_id"
       )->join(
@@ -25,13 +28,17 @@ class CoursesController extends Controller
       )->select(
         "courses.*", "categories.title as categories",
         "teachers.first_name as teachers",
+        "teachers.image as teacher_image",
         "admins.first_name as admins"
-      )
+      )->offset($offset)
+        ->limit($limt)
       ->get();
+      $coursesall = $courses->count();
         return [
           'success' => true,
           'status' => 200 ,
-          'data' => $courses
+          'data' => $courses,
+          'dataall' => $coursesall
       ];
     }
 
@@ -49,7 +56,8 @@ class CoursesController extends Controller
           'status' => 401
         ]);
       }
-      if(!$request->user()->rolls || $request->user()->id != $courses ){
+      $coursesd = Courses::find($courses);
+      if(!$request->user()->rolls || $request->user()->id != $coursesd->teacher_id ){
         return response()->json([
           'msg' => 'not access',
           'success' => false,
@@ -90,24 +98,25 @@ class CoursesController extends Controller
       }
       $request->validate([
         'title' => 'required|max:100',
-        'image' => 'required|images|mimes:png,jpg',
+        'image' => 'required|mimes:png,jpg',
         'price' => 'required|max:100',
         'discount' => 'max:100|nullable',
         'desc' => 'nullable',
-        'categories_id' => 'required|max:100'
+        'categories_id' => 'required|max:100',
         'teacher_id' => 'required|max:100'
       ]);
 
       if($request->hasfile('image')) {
         $file = $request->file('image');
-        $name = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/courses/', $name);
+        $name =  time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/course/'), $name);
+        $link = "uploads/course/".$name;
       }
 
       $courses = Courses::create(
         array_merge($request->all(),[
           'admin_id' => $request->user()->id,
-          'image' => $name,
+          'image' => $link,
          ]),
       );
       return response()->json([
@@ -125,13 +134,7 @@ class CoursesController extends Controller
      */
     public function show(Courses $courses)
     {
-      if(!$request->user()->tokenCan('courses:read')){
-        return response()->json([
-          'msg' => 'not access',
-          'success' => false,
-          'status' => 401
-        ]);
-      }
+
 
         $courses = Courses::join(
           "teachers","teachers.id", "=" , "courses.teacher_id"
@@ -140,12 +143,13 @@ class CoursesController extends Controller
         )->join(
             "admins","admins.id", "=" , "courses.admin_id"
         )->select(
-          "courses.*", "categories.title as categories",
-          "teachers.first_name as teachers",
-          "admins.first_name as admins"
-        )->where("id", $courses->id )
-        ->get();
-        $couresedetails = CoursesDetails::where("course_id", $courses->id )->get();
+          "courses.*",
+          "categories.title as category",
+          "teachers.first_name as teacher",
+          "admins.first_name as admin"
+        )->where("courses.id","=", $courses->id)
+        ->get()->first();
+        $couresedetails = CoursesDetails::where("course_id", $courses->id )->get()->first();
         $courses->details = $couresedetails;
         return response()->json([
             'success' => true,
@@ -160,23 +164,38 @@ class CoursesController extends Controller
      * @param  \App\Models\Courses  $courses
      * @return \Illuminate\Http\Response
      */
-    public function search($courses, $search = '')
+    public function search( Request $request)
     {
+      $search = !$request->query('search') ? '' : $request->query('search');
+      $categories =  $request->query('categories');
+      $c =Categories::find($categories);
+      if(!$c){
+        return response()->json([
+          'msg' => 'not found',
+          'success' => false,
+          'status' => 404
+        ]);
+      }
       $courses = Courses::join(
         "teachers","teachers.id", "=" , "courses.teacher_id"
-      )->join(
+      )->leftjoin(
         "categories","categories.id", "=" , "courses.categories_id"
-      )->join(
+      )->leftjoin(
           "admins","admins.id", "=" , "courses.admin_id"
       )->select(
-        "courses.*", "categories.title as categories",
-        "teachers.first_name as teachers",
-        "admins.first_name as admins"
-      )->where("categories_id", $courses)
-      ->where('title', 'like', '%'.$search.'%')
+        "courses.*",
+        "teachers.first_name as teacher",
+        "categories.title as category",
+        "admins.first_name as admin"
+      )
+      ->where("courses.categories_id",'=', $categories)
+      ->where('courses.title', 'like', '%'.$search.'%')
       ->get();
-      $couresedetails = CoursesDetails::where("course_id", $courses->id )->get();
-      $courses->details = $couresedetails;
+      for ($i=0; $i < count($courses) ; $i++) {
+        // code...
+        $couresedetails = CoursesDetails::where("course_id", $courses[$i]->id )->get();
+        $courses->details = $couresedetails;
+      }
       return response()->json([
           'success' => true,
           'status' => 200 ,
@@ -209,23 +228,25 @@ class CoursesController extends Controller
       }
       $request->validate([
         'title' => 'required|max:100',
-        'image' => 'required|images|mimes:png,jpg',
+        'title_slug' => 'required|max:200|unique:courses,title_slug,'.$courses->id,
+        'image' => 'required|image|mimes:png,jpg',
         'price' => 'required|max:100',
         'discount' => 'max:100|nullable',
         'desc' => 'nullable',
-        'categories_id' => 'required|max:100'
+        'categories_id' => 'required|max:100',
         'teacher_id' => 'required|max:100'
       ]);
 
       if($request->hasfile('image')) {
         $file = $request->file('image');
-        $name = $file->getClientOriginalName();
-        $file->move(public_path().'/uploads/', $name);
+        $name = time().$file->getClientOriginalName();
+        $file->move(public_path('/uploads/course/'), $name);
+        $link = "uploads/course/".$name;
       }
 
       $course = Courses::where('id', $courses->id)->update(
         array_merge($request->all(),[
-          'image' =>$name,
+          'image' => $link,
           'admin_id' => $request->user()->id
         ]),
       );

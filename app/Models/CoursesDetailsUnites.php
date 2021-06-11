@@ -36,5 +36,9 @@ class CoursesDetailsUnites extends Model
        {
            return $this->hasMany(UnitsVideos::class, 'unit_id');
        }
+       public function meeting_online_courses()
+       {
+           return $this->hasMany(MeetingOnlineCourses::class, 'unit_id');
+       }
     //
 }
